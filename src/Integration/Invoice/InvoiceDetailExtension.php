@@ -22,10 +22,12 @@ final class InvoiceDetailExtension implements InvoiceDetailExtensionInterface
         );
         $event = new AjaxEvent(InvoicePaymentAction::class, 'register');
         $event->setMinimumAccessLevel(2);
+        $update = new AjaxEvent(InvoicePaymentAction::class, 'updateManual');
+        $update->setMinimumAccessLevel(2);
+        $delete = new AjaxEvent(InvoicePaymentAction::class, 'deleteManual');
+        $delete->setMinimumAccessLevel(2);
         $viewModel = InvoicePaymentFactory::createPresenter()->present(
-            $context,
-            $allocations,
-            $event->getName()
+            $context, $allocations, $event->getName(), $update->getName(), $delete->getName()
         );
         $viewModel['mollieEnabled'] = InvoicePaymentFactory::mollieLinksEnabled();
         $viewModel['mollieLink'] = $viewModel['mollieEnabled']

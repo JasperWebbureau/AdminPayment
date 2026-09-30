@@ -44,6 +44,11 @@ final class InvoicePaymentFactory
         return new InvoicePaymentPresenter(new _Time());
     }
 
+    public static function createManualEditor(): ManualInvoicePaymentEditor
+    {
+        return new ManualInvoicePaymentEditor(self::connection(), self::tenantContext()->getTenantId());
+    }
+
     public static function mollieLinksEnabled(): bool
     {
         return defined('__ADMIN_INVOICE_MOLLIE_KEY__')

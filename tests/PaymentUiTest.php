@@ -48,7 +48,7 @@ $viewModel = $presenter->present($context, [
         '',
         'manual'
     ),
-], 'payment-register-event');
+], 'payment-register-event', 'payment-update-event', 'payment-delete-event');
 
 adminPaymentAssert($viewModel['allocatedTotal'] === '€ 40,00', 'Presenter moet receipts en refunds signed sommeren.');
 adminPaymentAssert($viewModel['balance'] === '€ 81,00', 'Presenter moet het openstaande bedrag server-side bepalen.');
@@ -59,7 +59,11 @@ $tableHtml = (new TableRenderer($viewModel['table']))->render();
 adminPaymentAssert(strpos($tableHtml, 'data-fg-table="admin-invoice-payments"') !== false, 'Betaalhistorie moet de gedeelde TableRenderer gebruiken.');
 adminPaymentAssert(strpos($tableHtml, '&lt;Eerste betaling&gt;') !== false, 'Paymentomschrijving moet escaped worden.');
 adminPaymentAssert(strpos($tableHtml, '<BANK-1>') === false && strpos($tableHtml, '&lt;BANK-1&gt;') !== false, 'Paymentreferentie moet escaped worden.');
-adminPaymentAssert(strpos($tableHtml, 'Terugbetaling') !== false && strpos($tableHtml, '€ -10,00') !== false, 'Refund moet herkenbaar en negatief in de historie staan.');
+adminPaymentAssert(strpos($tableHtml, 'Terugbetaling') !== false && strpos($tableHtml, 'value="10.00"') !== false, 'Refund moet herkenbaar en met positief invoerbedrag bewerkbaar zijn.');
+adminPaymentAssert(substr_count($tableHtml, 'payment-update-event') === 1
+    && substr_count($tableHtml, 'payment-delete-event') === 1
+    && strpos($tableHtml, 'data-allocation_public_id="allocation-ui-2"') !== false,
+    'Alleen de handmatige betaling mag inline worden aangepast of verwijderd.');
 
 $template = (string)file_get_contents(dirname(__DIR__) . '/src/Templates/Invoice/Panel.php');
 adminPaymentAssert(strpos($template, 'class="admin-form admin-payment-form"') !== false, 'Paymentformulier moet de generieke form-gridreset gebruiken.');

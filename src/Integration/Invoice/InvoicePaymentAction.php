@@ -11,6 +11,39 @@ use Flexgrid\Utils\Request\Request;
 
 final class InvoicePaymentAction
 {
+    public function updateManual(): AjaxResponse
+    {
+        return $this->changeManual(false);
+    }
+
+    public function deleteManual(): AjaxResponse
+    {
+        return $this->changeManual(true);
+    }
+
+    private function changeManual(bool $delete): AjaxResponse
+    {
+        try {
+            $request = new Request();
+            $invoiceId = $this->requestString($request, 'invoice_public_id');
+            InvoicePaymentFactory::createManualEditor()->change(
+                $invoiceId,
+                $this->requestString($request, 'allocation_public_id'),
+                $delete ? null : $this->requestString($request, 'amount')
+            );
+            $context = InvoicePaymentFactory::createInvoicePort()->findPaymentDetailByPublicId(
+                InvoicePaymentFactory::tenantContext()->getTenantId(), $invoiceId
+            );
+            if ($context === null) { throw new \RuntimeException('Factuurdetail kon niet worden vernieuwd.'); }
+            $response = new AjaxResponse();
+            $response->success = true;
+            $response->setContainer('[data-admin-payment-panel]', (new InvoiceDetailExtension())->render($context), true);
+            return $response;
+        } catch (\Throwable $throwable) {
+            return $this->errorResponse($throwable);
+        }
+    }
+
     public function createLink(): AjaxResponse
     {
         try {

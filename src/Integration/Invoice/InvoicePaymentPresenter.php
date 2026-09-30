@@ -9,6 +9,7 @@ use Flexgrid\Modules\AdminInvoice\Application\ReadModel\InvoiceDetailContext;
 use Flexgrid\Modules\AdminInvoice\Domain\ValueObject\PaymentStatus;
 use Flexgrid\Modules\AdminPayment\Application\ReadModel\PaymentAllocationView;
 use Flexgrid\Modules\AdminPayment\Domain\ValueObject\PaymentType;
+use Flexgrid\Html\Table\TrustedHtml;
 use Flexgrid\Utils\_Time;
 
 final class InvoicePaymentPresenter
@@ -21,7 +22,7 @@ final class InvoicePaymentPresenter
     }
 
     /** @param PaymentAllocationView[] $allocations */
-    public function present(InvoiceDetailContext $context, array $allocations, string $registerAction): array
+    public function present(InvoiceDetailContext $context, array $allocations, string $registerAction, string $updateAction = '', string $deleteAction = ''): array
     {
         $allocated = Money::zero($context->getGrossTotal()->getCurrency());
         $rows = [];
@@ -30,6 +31,7 @@ final class InvoicePaymentPresenter
                 throw new \InvalidArgumentException('Paymentoverzicht bevat een ongeldig item.');
             }
             $allocated = $allocated->add($allocation->getAmount());
+            $manual = $allocation->getSource() === 'manual' && $context->canRegisterPayments();
             $rows[] = [
                 'id' => $allocation->getAllocationPublicId(),
                 'cells' => [
@@ -50,8 +52,19 @@ final class InvoicePaymentPresenter
                             ? 'warning'
                             : 'success',
                     ],
-                    'amount' => $this->money($allocation->getAmount()),
+                    'amount' => $manual && $updateAction !== ''
+                        ? new TrustedHtml($this->amountEditor($context->getPublicId(), $allocation, $updateAction))
+                        : $this->money($allocation->getAmount()),
                 ],
+                'actions' => $manual && $deleteAction !== '' ? [[
+                    'label' => 'Verwijderen', 'icon' => 'fas fa-trash', 'variant' => 'danger',
+                    'attributes' => [
+                        'ajax' => 'true', 'action' => $deleteAction,
+                        'data-invoice_public_id' => $context->getPublicId(),
+                        'data-allocation_public_id' => $allocation->getAllocationPublicId(),
+                        'alert' => 'Deze handmatige betaling verwijderen?',
+                    ],
+                ]] : [],
             ];
         }
 
@@ -98,6 +111,22 @@ final class InvoicePaymentPresenter
                 ],
             ],
         ];
+    }
+
+    private function amountEditor(string $invoiceId, PaymentAllocationView $allocation, string $action): string
+    {
+        $h = static function (string $value): string {
+            return htmlspecialchars($value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        };
+        $amount = $allocation->getAmount();
+        $currency = $amount->getCurrency()->getCode();
+        $value = (new Money(abs($amount->getMinorUnits()), $amount->getCurrency()))->format('.', '');
+        return '<form class="admin-payment-inline" ajax="true" action="' . $h($action) . '" method="post">'
+            . '<input type="hidden" name="invoice_public_id" value="' . $h($invoiceId) . '">'
+            . '<input type="hidden" name="allocation_public_id" value="' . $h($allocation->getAllocationPublicId()) . '">'
+            . '<label><span class="fg-table__visually-hidden">Bedrag (' . $h($currency) . ')</span>'
+            . '<input type="number" name="amount" min="0.01" step="0.01" value="' . $h($value) . '" required></label>'
+            . '<button class="button button-small button-publish" type="submit">Opslaan</button></form>';
     }
 
     private function money(Money $money): string

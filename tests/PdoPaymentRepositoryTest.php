@@ -9,6 +9,7 @@ if (PHP_SAPI !== 'cli') {
 
 require_once __DIR__ . '/bootstrap.php';
 require_once dirname(__DIR__, 2) . '/AdminInvoice/src/Infrastructure/Persistence/PdoInvoicePaymentPort.php';
+require_once dirname(__DIR__) . '/src/Integration/Invoice/ManualInvoicePaymentEditor.php';
 
 use Flexgrid\Modules\AdminCore\Context\TenantContext;
 use Flexgrid\Modules\AdminCore\Infrastructure\PdoTransactionManager;
@@ -102,6 +103,21 @@ try {
     $count = $connection->prepare('SELECT COUNT(*) FROM `admin_payment` WHERE `tenant_id` = :tenant_id');
     $count->execute([':tenant_id' => $tenantId->toString()]);
     adminPaymentAssert((int)$count->fetchColumn() === 2, 'Idempotente retry mag geen derde payment maken.');
+
+    $manual = $useCase->execute(new RegisterInvoicePaymentCommand(
+        $invoicePublicId, '10.00', 'EUR', '2026-09-20', 'receipt', '', '', 'manual'
+    ));
+    $editor = new \Flexgrid\Modules\AdminPayment\Integration\Invoice\ManualInvoicePaymentEditor($connection, $tenantId);
+    $manualAllocation = $manual->getAllocations()[0]->getPublicId();
+    adminPaymentAssertThrows(DomainException::class, function () use ($editor, $invoicePublicId, $first): void {
+        $editor->change($invoicePublicId, $first->getAllocations()[0]->getPublicId(), '50.00');
+    }, 'Een bankbetaling mag niet via de handmatige editor worden gewijzigd.');
+    $editor->change($invoicePublicId, $manualAllocation, '20.00');
+    $status->execute([':tenant_id' => $tenantId->toString(), ':public_id' => $invoicePublicId]);
+    adminPaymentAssert($status->fetchColumn() === 'overpaid', 'Een gewijzigd handmatig bedrag moet de factuurstatus bijwerken.');
+    $editor->change($invoicePublicId, $manualAllocation, null);
+    $status->execute([':tenant_id' => $tenantId->toString(), ':public_id' => $invoicePublicId]);
+    adminPaymentAssert($status->fetchColumn() === 'paid', 'Verwijderen moet de factuurstatus opnieuw berekenen.');
 
     $connection->rollBack();
 } catch (Throwable $throwable) {

@@ -7,6 +7,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--admin-space-sm);
+  margin-bottom: var(--admin-space-md);
 
   > div {
     display: grid;
@@ -34,7 +35,15 @@
   border: 1px solid var(--admin-color-border-soft);
   border-radius: var(--admin-radius-panel);
   background: var(--admin-color-surface-muted);
+  margin-bottom: var(--admin-space-md);
 }
+
+.admin-payment-link { margin-bottom: var(--admin-space-md); }
+
+.admin-payment-inline { gap: var(--admin-space-xs); align-items: center; min-width: 160px; }
+.admin-payment-inline label { --cw: 8; --cw-sm: 8; }
+.admin-payment-inline input { width: 100%; min-width: 0; }
+.admin-payment-inline button { --cw: 4; --cw-sm: 4; }
 
 .admin-payment-form > .admin-field { --cw: 3; --cw-sm: 6; }
 
