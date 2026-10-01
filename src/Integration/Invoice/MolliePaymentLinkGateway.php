@@ -12,26 +12,38 @@ final class MolliePaymentLinkGateway implements PaymentLinkGatewayInterface
 
     public function __construct(string $apiKey)
     {
-        if (!preg_match('/^(test|live)_[A-Za-z0-9]+$/D', $apiKey)) {
-            throw new \LogicException('Configureer een geldige Mollie-sleutel voor factuurbetalingen.');
+        if (!preg_match('/^live_[A-Za-z0-9]+$/D', $apiKey)) {
+            throw new \LogicException('Configureer een live Mollie-sleutel voor factuurbetalingen.');
         }
         $this->client = new MollieApiClient();
         $this->client->setApiKey($apiKey);
     }
 
-    public function create(string $description, string $currency, string $amount, string $webhookUrl): array
+    public function create(string $description, string $currency, string $amount, string $webhookUrl = '', string $redirectUrl = ''): array
     {
-        $link = $this->client->paymentLinks->create([
+        $parameters = [
             'description' => $description,
             'amount' => ['currency' => $currency, 'value' => $amount],
-            'webhookUrl' => $webhookUrl,
             'reusable' => false,
-        ]);
+        ];
+        if ($webhookUrl !== '') { $parameters['webhookUrl'] = $webhookUrl; }
+        if ($redirectUrl !== '') { $parameters['redirectUrl'] = $redirectUrl; }
+        $link = $this->client->paymentLinks->create($parameters);
         return [
             'id' => (string)$link->id,
             'url' => (string)$link->getCheckoutUrl(),
             'mode' => (string)$link->mode,
         ];
+    }
+
+    public function paymentsForLink(string $linkId): array
+    {
+        $ids = [];
+        foreach ($this->client->paymentLinkPayments->iteratorForId($linkId) as $payment) {
+            $ids[] = (string)$payment->id;
+            if (count($ids) >= 250) { break; }
+        }
+        return $ids;
     }
 
     public function payment(string $paymentId, string $linkId): array

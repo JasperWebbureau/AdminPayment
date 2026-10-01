@@ -26,13 +26,13 @@ $h = function ($value): string {
             <div class="admin-payment-link">
                 <h4>Mollie-betaallink</h4>
                 <?php if (($mollieLink['status'] ?? '') === 'ready' || ($mollieLink['status'] ?? '') === 'paid') { ?>
-                    <p>Deze link is aangemaakt voor het volledige oorspronkelijke factuurbedrag. Controleer de openstaande balans voordat je hem deelt; handmatige betalingen wijzigen een bestaande link niet.</p>
+                    <p>Deze link staat ook met QR-code op de definitieve PDF zolang de factuur openstaat. Controleer de openstaande balans voordat je hem deelt; handmatige betalingen wijzigen een bestaande link niet.</p>
                     <p><a class="button button-secondary" href="<?=$h($mollieLink['url'])?>" target="_blank" rel="noopener noreferrer">Betaallink openen</a> <span><?=$h($mollieLink['status'] === 'paid' ? 'Betaald via Mollie' : 'Nog niet via Mollie betaald')?></span></p>
                     <p><code><?=$h($mollieLink['url'])?></code></p>
                 <?php } elseif ($mollieLink !== null) { ?>
                     <p>De betaallink wordt verwerkt of vereist handmatige controle. Maak niet opnieuw een link aan voordat de Mollie-status is nagekeken.</p>
                 <?php } elseif ($canCreateLink ?? false) { ?>
-                    <p>Maak alleen een betaallink als de klant online wil betalen. Deze stap verstuurt nog geen e-mail.</p>
+                    <p>Bij het genereren van de definitieve PDF wordt automatisch een betaallink aangemaakt. Met deze knop kan dat ook vooraf; er wordt geen e-mail verstuurd.</p>
                     <button class="button button-secondary" type="button" ajax="true" action="<?=$h($createLinkAction ?? '')?>" invoice_public_id="<?=$h($invoicePublicId ?? '')?>" alert="Mollie-betaallink voor het volledige factuurbedrag aanmaken?" use-waiting-icon>Betaallink aanmaken</button>
                 <?php } ?>
             </div>

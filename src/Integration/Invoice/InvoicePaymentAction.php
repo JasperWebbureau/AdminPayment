@@ -11,6 +11,28 @@ use Flexgrid\Utils\Request\Request;
 
 final class InvoicePaymentAction
 {
+    public function synchronizeLinks(): AjaxResponse
+    {
+        try {
+            $result = InvoicePaymentFactory::createMollieLinks()->synchronizeOpenLinks();
+            $response = new AjaxResponse();
+            $response->success = true;
+            $message = $result['paid'] > 0
+                ? $result['paid'] . ' Mollie-betaling(en) verwerkt.'
+                : 'Mollie gecontroleerd: geen nieuwe betalingen.';
+            $response->notifications = [
+                '<div class="notification notification--success" fade="3500">'
+                . htmlspecialchars($message, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8') . '</div>',
+            ];
+            if ($result['paid'] > 0) {
+                $response->redirect = rtrim((string)__DOMAIN__, '/') . '/Flexgrid/AdminInvoice/invoices';
+            }
+            return $response;
+        } catch (\Throwable $throwable) {
+            return $this->errorResponse($throwable);
+        }
+    }
+
     public function updateManual(): AjaxResponse
     {
         return $this->changeManual(false);
@@ -57,7 +79,8 @@ final class InvoicePaymentAction
             }
             InvoicePaymentFactory::createMollieLinks()->create(
                 $context,
-                rtrim((string)__DOMAIN__, '/') . '/api/AdminInvoicePayment/webhook'
+                '',
+                InvoicePaymentFactory::mollieRedirectUrl()
             );
             $response = new AjaxResponse();
             $response->success = true;

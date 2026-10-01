@@ -17,13 +17,15 @@ final class InvoiceMollieLinks
     private $tenant;
     private $gateway;
     private $recordPayment;
+    private $invoiceIsUnpaid;
 
-    public function __construct(\PDO $connection, TenantId $tenant, PaymentLinkGatewayInterface $gateway, callable $recordPayment)
+    public function __construct(\PDO $connection, TenantId $tenant, PaymentLinkGatewayInterface $gateway, callable $recordPayment, ?callable $invoiceIsUnpaid = null)
     {
         $this->connection = $connection;
         $this->tenant = $tenant;
         $this->gateway = $gateway;
         $this->recordPayment = $recordPayment;
+        $this->invoiceIsUnpaid = $invoiceIsUnpaid;
     }
 
     public function find(string $invoicePublicId): ?array
@@ -38,7 +40,7 @@ final class InvoiceMollieLinks
         return is_array($row) ? $row : null;
     }
 
-    public function create(InvoiceDetailContext $invoice, string $webhookBaseUrl): array
+    public function create(InvoiceDetailContext $invoice, string $webhookBaseUrl = '', string $redirectUrl = ''): array
     {
         if ($invoice->getStatus() !== InvoiceStatus::FINALIZED
             || $invoice->getPaymentStatus() !== PaymentStatus::UNPAID
@@ -48,8 +50,11 @@ final class InvoiceMollieLinks
         if ($this->find($invoice->getPublicId()) !== null) {
             throw new \DomainException('Voor deze factuur bestaat al een betaallink of een aanmaakpoging.');
         }
-        if (!preg_match('~^https://[^\s]+$~iD', $webhookBaseUrl)) {
+        if ($webhookBaseUrl !== '' && !preg_match('~^https://[^\s]+$~iD', $webhookBaseUrl)) {
             throw new \LogicException('De Mollie-webhook vereist een publieke HTTPS-URL.');
+        }
+        if ($redirectUrl !== '' && !preg_match('~^https://[^\s]+$~iD', $redirectUrl)) {
+            throw new \LogicException('De Mollie-bedankpagina vereist een publieke HTTPS-URL.');
         }
         $amount = $invoice->getGrossTotal();
         $now = time();
@@ -72,9 +77,11 @@ final class InvoiceMollieLinks
                 'Factuur ' . $invoice->getNumber(),
                 $amount->getCurrency()->getCode(),
                 $amount->format('.', ''),
-                rtrim($webhookBaseUrl, '/') . '/' . rawurlencode($invoice->getPublicId())
+                $webhookBaseUrl === '' ? '' : rtrim($webhookBaseUrl, '/') . '/' . rawurlencode($invoice->getPublicId()),
+                $redirectUrl
             );
-            if (strpos((string)$link['id'], 'pl_') !== 0
+            if (($link['mode'] ?? '') !== 'live'
+                || strpos((string)$link['id'], 'pl_') !== 0
                 || !preg_match('~^https://[^\s]+$~iD', (string)$link['url'])) {
                 throw new \UnexpectedValueException('Mollie gaf geen geldige betaallink terug.');
             }
@@ -84,6 +91,32 @@ final class InvoiceMollieLinks
             throw $exception;
         }
         return $this->find($invoice->getPublicId());
+    }
+
+    /** Poll only existing, unpaid links; remote failures remain visible to the caller. */
+    public function synchronizeOpenLinks(): array
+    {
+        $statement = $this->connection->prepare(
+            'SELECT `invoice_public_id`,`provider_link_id` FROM `admin_invoice_payment_link` '
+            . 'WHERE `tenant_id`=:tenant AND `status`=:status AND `provider_link_id` IS NOT NULL'
+        );
+        $statement->execute([':tenant' => $this->tenant->toString(), ':status' => 'ready']);
+        $checked = 0;
+        $paid = 0;
+        foreach ($statement->fetchAll(\PDO::FETCH_ASSOC) as $row) {
+            $checked++;
+            if ($this->invoiceIsUnpaid !== null
+                && !($this->invoiceIsUnpaid)((string)$row['invoice_public_id'])) {
+                continue;
+            }
+            foreach ($this->gateway->paymentsForLink((string)$row['provider_link_id']) as $paymentId) {
+                if ($this->synchronize((string)$row['invoice_public_id'], $paymentId)) {
+                    $paid++;
+                    break;
+                }
+            }
+        }
+        return ['checked' => $checked, 'paid' => $paid];
     }
 
     /** Verifies authoritative Mollie status and membership of this exact link. */

@@ -14,6 +14,7 @@ use Flexgrid\Modules\AdminPayment\Application\Command\RegisterInvoicePaymentComm
 use Flexgrid\Modules\AdminPayment\Application\UseCase\ListTargetPayments;
 use Flexgrid\Modules\AdminPayment\Infrastructure\Persistence\PdoPaymentRepository;
 use Flexgrid\Utils\_Time;
+use Flexgrid\App\Settings\Settings;
 
 final class InvoicePaymentFactory
 {
@@ -51,8 +52,8 @@ final class InvoicePaymentFactory
 
     public static function mollieLinksEnabled(): bool
     {
-        return defined('__ADMIN_INVOICE_MOLLIE_KEY__')
-            && preg_match('/^(test|live)_[A-Za-z0-9]+$/D', trim((string)constant('__ADMIN_INVOICE_MOLLIE_KEY__'))) === 1
+        return defined('__MOLLIE_KEY__')
+            && preg_match('/^live_[A-Za-z0-9]+$/D', trim((string)constant('__MOLLIE_KEY__'))) === 1
             && class_exists(\Mollie\Api\MollieApiClient::class);
     }
 
@@ -64,14 +65,31 @@ final class InvoicePaymentFactory
         return new InvoiceMollieLinks(
             self::connection(),
             self::tenantContext()->getTenantId(),
-            new MolliePaymentLinkGateway((string)constant('__ADMIN_INVOICE_MOLLIE_KEY__')),
+            new MolliePaymentLinkGateway(trim((string)constant('__MOLLIE_KEY__'))),
             static function (string $invoiceId, string $amount, string $currency, string $paymentId, string $bookedOn): void {
                 self::createRegisterInvoicePayment()->execute(new RegisterInvoicePaymentCommand(
                     $invoiceId, $amount, $currency, $bookedOn, 'receipt',
                     'Mollie factuurbetaling', $paymentId, 'mollie_invoice', $paymentId
                 ));
+            },
+            static function (string $invoiceId): bool {
+                $context = self::createInvoicePort()->findPaymentDetailByPublicId(
+                    self::tenantContext()->getTenantId(), $invoiceId
+                );
+                return $context !== null && $context->getPaymentStatus() === \Flexgrid\Modules\AdminInvoice\Domain\ValueObject\PaymentStatus::UNPAID;
             }
         );
+    }
+
+    public static function mollieRedirectUrl(): string
+    {
+        new Settings();
+        $setting = Settings::get('administration_invoice_mollie_redirect_url');
+        $url = is_array($setting) ? trim((string)($setting['value'] ?? '')) : '';
+        if ($url !== '' && !preg_match('~^https://[^\s]+$~iD', $url)) {
+            throw new \LogicException('Stel een publieke HTTPS-bedankpagina in voor Mollie.');
+        }
+        return $url;
     }
 
     public static function createInvoicePort(): PdoInvoicePaymentPort

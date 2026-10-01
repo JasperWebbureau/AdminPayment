@@ -17,16 +17,19 @@ final class PaymentLinkTestGateway implements PaymentLinkGatewayInterface
     public $amount = '12.10';
     public $status = 'paid';
     public $creates = [];
-    public function create(string $description, string $currency, string $amount, string $webhookUrl): array
+    public $paymentIds = [];
+    public function create(string $description, string $currency, string $amount, string $webhookUrl = '', string $redirectUrl = ''): array
     {
-        $this->creates[] = [$description, $currency, $amount, $webhookUrl];
-        return ['id' => 'pl_test123', 'url' => 'https://www.mollie.com/payments/test123', 'mode' => 'test'];
+        $this->creates[] = [$description, $currency, $amount, $webhookUrl, $redirectUrl];
+        $id = 'pl_test' . count($this->creates);
+        return ['id' => $id, 'url' => 'https://www.mollie.com/payments/' . $id, 'mode' => 'live'];
     }
+    public function paymentsForLink(string $linkId): array { return $this->paymentIds; }
     public function payment(string $paymentId, string $linkId): array
     {
         return [
             'id' => $paymentId, 'status' => $this->status,
-            'belongs_to_link' => $this->belongs && $linkId === 'pl_test123',
+            'belongs_to_link' => $this->belongs && in_array($linkId, ['pl_test1', 'pl_test2'], true),
             'currency' => 'EUR', 'amount' => $this->amount,
             'paid_at' => '2026-09-28T12:00:00+00:00',
         ];
@@ -66,5 +69,15 @@ adminPaymentAssert($links->synchronize('invoice-1', 'tr_payment1') === true
     'Bevestigde Mollie-betaling moet exact eenmaal aan AdminPayment worden doorgegeven.');
 adminPaymentAssert($links->synchronize('invoice-1', 'tr_payment1') === true && count($recorded) === 1,
     'Herhaalde Mollie-webhooks moeten idempotent blijven.');
+
+$invoiceTwo = new InvoiceDetailContext('invoice-2', '2026-0002', 'final', 'unpaid',
+    Money::fromDecimal('12.10', Currency::euro()));
+$links->create($invoiceTwo, '', 'https://example.test/bedankt');
+adminPaymentAssert($gateway->creates[1][3] === '' && $gateway->creates[1][4] === 'https://example.test/bedankt',
+    'Lokale facturen mogen zonder webhook werken en een configureerbare bedankpagina gebruiken.');
+$gateway->paymentIds = ['tr_payment2'];
+$summary = $links->synchronizeOpenLinks();
+adminPaymentAssert($summary['checked'] === 1 && $summary['paid'] === 1 && count($recorded) === 2,
+    'Een handmatige Mollie-controle moet een nieuwe betaling boeken zonder webhook.');
 
 echo "AdminPayment Mollie link tests passed.\n";
