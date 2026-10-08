@@ -41,6 +41,21 @@ final class InvoiceDetailExtension implements InvoiceDetailExtensionInterface
             && $context->getPaymentStatus() === \Flexgrid\Modules\AdminInvoice\Domain\ValueObject\PaymentStatus::UNPAID
             && $context->getGrossTotal()->getMinorUnits() > 0;
 
+        $viewModel['directDebitReady'] = InvoicePaymentFactory::directDebitReady();
+        $viewModel['debit'] = $viewModel['directDebitReady']
+            ? InvoicePaymentFactory::createDirectDebit()->findDebit($context->getPublicId()) : null;
+        $viewModel['directDebitEnabled'] = DirectDebitSettings::enabled();
+        $viewModel['debitLabel'] = $viewModel['debit'] !== null
+            ? AdminInvoiceCollectionController::statusLabel($viewModel['debit']['status']) : '';
+        $viewModel['announceDebitAction'] = AdminInvoiceCollectionController::action('announce');
+        $viewModel['syncDebitAction'] = AdminInvoiceCollectionController::action('syncInvoice');
+        $viewModel['recoverDebitAction'] = AdminInvoiceCollectionController::action('recoverInvoice');
+        if ($viewModel['debit'] !== null) { $viewModel['canCreateLink'] = false; }
+        if ($viewModel['directDebitReady']) {
+            $invoice = \Flexgrid\Modules\AdminInvoice\Service\AdminInvoiceFactory::createGetInvoice()->execute($context->getPublicId());
+            if (InvoicePaymentFactory::collectionPdfData($invoice) !== null) { $viewModel['canCreateLink'] = false; }
+        }
+
         return (string)new TemplateResponse(
             'Flexgrid/Modules/AdminPayment/src/Templates/Invoice/Panel.php',
             $viewModel

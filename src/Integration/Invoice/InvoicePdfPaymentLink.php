@@ -13,6 +13,10 @@ final class InvoicePdfPaymentLink
 {
     public function forInvoice(Invoice $invoice): ?array
     {
+        if ($invoice->getStatus()->getValue() === InvoiceStatus::FINALIZED) {
+            $collection = InvoicePaymentFactory::collectionPdfData($invoice);
+            if ($collection !== null) { return $collection; }
+        }
         if (!InvoicePaymentFactory::mollieLinksEnabled()
             || $invoice->getStatus()->getValue() !== InvoiceStatus::FINALIZED
             || $invoice->getPaymentStatus()->getValue() !== PaymentStatus::UNPAID) {

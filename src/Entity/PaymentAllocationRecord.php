@@ -7,7 +7,7 @@ namespace Flexgrid\Modules\AdminPayment\Entity;
 use Repository\RepositoryEntity;
 
 /**
- * @FG\Entity[name=admin_payment_allocation,repository=Flexgrid\Modules\AdminPayment\Repository\PaymentAllocationRecordRepository,type=Module,in_menu=false]
+ * @FG\Entity[name=admin_payment_allocation,repository=Flexgrid\Modules\AdminPayment\Repository\PaymentAllocationRecordRepository,type=Module,in_menu=false,hide=true]
  * @FG\Index::tenant_public[columns={tenantId,publicId},unique=true]
  * @FG\Index::tenant_payment_target[columns={tenantId,paymentId,targetType,targetPublicId},unique=true]
  * @FG\Index::tenant_target[columns={tenantId,targetType,targetPublicId}]

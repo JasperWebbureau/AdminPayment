@@ -31,6 +31,20 @@ use Flexgrid\Modules\AdminPayment\Entity\PaymentRecord;
 use Flexgrid\Modules\AdminPayment\Entity\InvoicePaymentLinkRecord;
 
 $scanner = new EntityScanner();
+foreach (['InvoiceDebitCustomerRecord' => 'admin_invoice_debit_customer', 'InvoiceDirectDebitRecord' => 'admin_invoice_direct_debit'] as $class => $tableName) {
+    $file = dirname(__DIR__) . '/src/Entity/' . $class . '.php';
+    require_once $file;
+    $definition = $scanner->parseEntity('Flexgrid\\Modules\\AdminPayment\\Entity\\' . $class, $file);
+    adminPaymentAssert($definition->getTableName() === $tableName, 'Incasso heeft een eigen moduletabel.');
+    foreach ($definition->getClassAnnotations()['Index'] as $name => $annotation) {
+        $index = SchemaIndexDefinition::fromEntityAnnotation($definition, $name, $annotation);
+        adminPaymentAssert(strpos($index->buildCreateSql($tableName), 'UNIQUE INDEX') !== false, 'Incassosleutels moeten unieke database-indexen hebben.');
+    }
+    if ($class === 'InvoiceDirectDebitRecord') {
+        adminPaymentAssert($definition->getProperties()['collectOn']->getDatabaseType() === 'VARCHAR', 'Incassodatum bewaart een kalenderdatum, geen timestamp.');
+        adminPaymentAssert($definition->getProperties()['amountMinor']->getDatabaseType() === 'BIGINT', 'Incassobedrag gebruikt minor units.');
+    }
+}
 $paymentFile = dirname(__DIR__) . '/src/Entity/PaymentRecord.php';
 $allocationFile = dirname(__DIR__) . '/src/Entity/PaymentAllocationRecord.php';
 $payment = $scanner->parseEntity(PaymentRecord::class, $paymentFile);

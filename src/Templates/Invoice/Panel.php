@@ -22,6 +22,30 @@ $h = function ($value): string {
             <div><span><?=$h($balanceLabel ?? 'Openstaand')?></span><strong><?=$h($balance ?? '')?></strong></div>
         </div>
 
+        <?php if ($directDebitReady ?? false) { ?>
+            <div>
+                <h4>Automatische incasso</h4>
+                <?php if (($debit ?? null) !== null) { ?>
+                    <p><strong><?=$h($debitLabel)?></strong> — vanaf <?=$h((new \DateTimeImmutable($debit['collect_on']))->format('d-m-Y'))?>.</p>
+                    <?php if ($debit['mode'] === 'test') { ?><p>Testmodus: geen echte afschrijving.</p><?php } ?>
+                    <?php if (!empty($debit['error'])) { ?><p><?=$h($debit['error'])?></p><?php } ?>
+                    <?php if (empty($debit['payment_id']) && in_array($debit['status'], ['creating', 'attention'], true)) { ?>
+                    <details><summary>Uitkomst in Mollie controleren</summary><p>Zoek in Mollie of deze factuur al een incassobetaling heeft. Koppel alleen die bestaande betaling; hiermee wordt geen nieuwe afschrijving gestart.</p>
+                        <form ajax="true" action="<?=$h($recoverDebitAction)?>" method="post">
+                            <input type="hidden" name="invoice_public_id" value="<?=$h($invoicePublicId)?>">
+                            <label class="admin-field" style="--cw:12"><span>Betalingsnummer uit Mollie</span><input name="payment_id" required pattern="tr_[A-Za-z0-9]+" placeholder="tr_..."></label>
+                            <div style="--cw:12"><button type="submit" class="button button-secondary">Bestaande betaling controleren en koppelen</button></div>
+                        </form>
+                    </details>
+                    <?php } ?>
+                    <?php if (!empty($debit['payment_id'])) { ?><button type="button" class="button button-secondary" ajax="true" action="<?=$h($syncDebitAction)?>" invoice_public_id="<?=$h($invoicePublicId)?>" use-waiting-icon>Incassostatus controleren</button><?php } ?>
+                <?php } else { ?><p>Incasso vereist een geldige machtiging en een ingeschakelde incassovoorkeur op de klantpagina. De factuur moet eerst definitief zijn.</p><?php } ?>
+                <?php if (($directDebitEnabled ?? false) && (($debit ?? null) === null || $debit['status'] === 'awaiting_notice') && ($canRegister ?? false)) { ?>
+                    <button type="button" class="button button-secondary" ajax="true" action="<?=$h($announceDebitAction)?>" invoice_public_id="<?=$h($invoicePublicId)?>" use-waiting-icon alert="Deze factuur per e-mail versturen met bedrag en incassodatum? Een eerdere factuurmail wordt hiermee opnieuw verstuurd.">Factuur versturen en incasso plannen</button>
+                <?php } ?>
+            </div>
+        <?php } ?>
+
         <?php if ($mollieEnabled ?? false) { ?>
             <div class="admin-payment-link">
                 <h4>Mollie-betaallink</h4>

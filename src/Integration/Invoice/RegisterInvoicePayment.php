@@ -30,6 +30,7 @@ final class RegisterInvoicePayment
     /** @var PaymentRepositoryInterface */ private $payments;
     /** @var InvoicePaymentPortInterface */ private $invoices;
     /** @var _Time */ private $clock;
+    private $registrationGuard;
 
     public function __construct(
         TenantContext $tenantContext,
@@ -37,7 +38,8 @@ final class RegisterInvoicePayment
         TransactionManagerInterface $transactions,
         PaymentRepositoryInterface $payments,
         InvoicePaymentPortInterface $invoices,
-        _Time $clock
+        _Time $clock,
+        ?callable $registrationGuard = null
     ) {
         $this->tenantContext = $tenantContext;
         $this->publicIds = $publicIds;
@@ -45,6 +47,7 @@ final class RegisterInvoicePayment
         $this->payments = $payments;
         $this->invoices = $invoices;
         $this->clock = $clock;
+        $this->registrationGuard = $registrationGuard;
     }
 
     public function execute(RegisterInvoicePaymentCommand $command): Payment
@@ -68,6 +71,7 @@ final class RegisterInvoicePayment
                         return $existing;
                     }
                 }
+                if ($this->registrationGuard !== null) { ($this->registrationGuard)($input['invoice_public_id'], $input['source']); }
                 $this->assertPayable($invoice, $input['amount']);
 
                 $timestamp = (int)$this->clock->get();

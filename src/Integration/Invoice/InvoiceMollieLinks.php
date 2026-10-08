@@ -18,14 +18,16 @@ final class InvoiceMollieLinks
     private $gateway;
     private $recordPayment;
     private $invoiceIsUnpaid;
+    private $creationGuard;
 
-    public function __construct(\PDO $connection, TenantId $tenant, PaymentLinkGatewayInterface $gateway, callable $recordPayment, ?callable $invoiceIsUnpaid = null)
+    public function __construct(\PDO $connection, TenantId $tenant, PaymentLinkGatewayInterface $gateway, callable $recordPayment, ?callable $invoiceIsUnpaid = null, ?callable $creationGuard = null)
     {
         $this->connection = $connection;
         $this->tenant = $tenant;
         $this->gateway = $gateway;
         $this->recordPayment = $recordPayment;
         $this->invoiceIsUnpaid = $invoiceIsUnpaid;
+        $this->creationGuard = $creationGuard;
     }
 
     public function find(string $invoicePublicId): ?array
@@ -58,7 +60,10 @@ final class InvoiceMollieLinks
         }
         $amount = $invoice->getGrossTotal();
         $now = time();
+        $ownsTransaction = !$this->connection->inTransaction();
         try {
+            if ($ownsTransaction) { $this->connection->beginTransaction(); }
+            if ($this->creationGuard !== null) { ($this->creationGuard)($invoice->getPublicId()); }
             $insert = $this->connection->prepare(
                 'INSERT INTO `admin_invoice_payment_link` '
                 . '(`tenant_id`,`invoice_public_id`,`status`,`provider_link_id`,`url`,`amount_minor`,`currency`,`payment_id`,`error`,`created_at`,`updated_at`) '
@@ -69,8 +74,13 @@ final class InvoiceMollieLinks
                 ':status' => 'creating', ':amount' => $amount->getMinorUnits(),
                 ':currency' => $amount->getCurrency()->getCode(), ':created' => $now, ':updated' => $now,
             ]);
-        } catch (\PDOException $exception) {
-            throw new \DomainException('Voor deze factuur wordt al een betaallink aangemaakt.');
+            if ($ownsTransaction) { $this->connection->commit(); }
+        } catch (\Throwable $exception) {
+            if ($ownsTransaction && $this->connection->inTransaction()) { $this->connection->rollBack(); }
+            if ($exception instanceof \PDOException && $this->find($invoice->getPublicId()) !== null) {
+                throw new \DomainException('Voor deze factuur wordt al een betaallink aangemaakt.');
+            }
+            throw $exception;
         }
         try {
             $link = $this->gateway->create(
