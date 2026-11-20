@@ -24,6 +24,8 @@ foreach ([
     'Domain/Model/Payment.php',
     'Exception/DuplicatePaymentReferenceException.php',
     'Contract/PaymentRepositoryInterface.php',
+    'Contract/PaymentOverviewRepositoryInterface.php',
+    'Application/UseCase/GetPaymentOverview.php',
     'Application/Command/RegisterInvoicePaymentCommand.php',
     'Application/ReadModel/PaymentAllocationView.php',
     'Application/UseCase/ListTargetPayments.php',

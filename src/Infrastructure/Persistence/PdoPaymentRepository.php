@@ -15,7 +15,7 @@ use Flexgrid\Modules\AdminPayment\Domain\ValueObject\BookingDate;
 use Flexgrid\Modules\AdminPayment\Domain\ValueObject\PaymentType;
 use Flexgrid\Modules\AdminPayment\Exception\DuplicatePaymentReferenceException;
 
-final class PdoPaymentRepository implements PaymentRepositoryInterface
+final class PdoPaymentRepository implements PaymentRepositoryInterface, \Flexgrid\Modules\AdminPayment\Contract\PaymentOverviewRepositoryInterface
 {
     private const PAYMENT_TABLE = 'admin_payment';
     private const ALLOCATION_TABLE = 'admin_payment_allocation';
@@ -25,6 +25,17 @@ final class PdoPaymentRepository implements PaymentRepositoryInterface
     public function __construct(\PDO $connection)
     {
         $this->connection = $connection;
+    }
+
+    public function overview(TenantId $tenantId, string $from, string $until): array
+    {
+        $parameters = [':tenant' => $tenantId->toString(), ':from_date' => $from, ':until_date' => $until];
+        $filter = ' WHERE tenant_id = :tenant AND booked_on >= :from_date AND booked_on < :until_date ';
+        $summary = $this->connection->prepare('SELECT currency, SUM(CASE WHEN amount_minor > 0 THEN amount_minor ELSE 0 END) receipts_minor, SUM(CASE WHEN amount_minor < 0 THEN amount_minor ELSE 0 END) refunds_minor, SUM(amount_minor) net_minor FROM `' . self::PAYMENT_TABLE . '`' . $filter . 'GROUP BY currency ORDER BY currency');
+        $summary->execute($parameters);
+        $rows = $this->connection->prepare('SELECT public_id, payment_type, amount_minor, currency, booked_on, description, reference, source FROM `' . self::PAYMENT_TABLE . '`' . $filter . 'ORDER BY booked_on DESC, id DESC LIMIT 100');
+        $rows->execute($parameters);
+        return ['totals' => $summary->fetchAll(\PDO::FETCH_ASSOC), 'payments' => $rows->fetchAll(\PDO::FETCH_ASSOC)];
     }
 
     public function insert(Payment $payment, int $createdAt): void

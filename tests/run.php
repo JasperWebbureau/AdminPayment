@@ -9,3 +9,4 @@ require __DIR__ . '/InvoiceMollieLinksTest.php';
 require __DIR__ . '/InvoiceDirectDebitTest.php';
 require __DIR__ . '/InvoicePaymentQrCodeTest.php';
 require __DIR__ . '/PersistenceMetadataTest.php';
+require __DIR__ . '/PaymentOverviewTest.php';
