@@ -5,7 +5,7 @@ namespace Flexgrid\Modules\AdminPayment\Entity;
 use Repository\RepositoryEntity;
 
 /**
- * @FG\Entity[name=admin_invoice_direct_debit,repository=Flexgrid\Modules\AdminPayment\Repository\InvoiceDirectDebitRecordRepository,type=Module,in_menu=false,hide=true]
+ * @FG\Entity[name=admin_invoice_direct_debit,label=Factuurincasso,repository=Flexgrid\Modules\AdminPayment\Repository\InvoiceDirectDebitRecordRepository,type=Module,in_menu=false,hide=true]
  * @FG\Index::tenant_invoice[columns={tenantId,invoicePublicId},unique=true]
  * @FG\Index::provider_payment[columns={paymentId},unique=true]
  */

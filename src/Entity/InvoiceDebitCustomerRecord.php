@@ -5,7 +5,7 @@ namespace Flexgrid\Modules\AdminPayment\Entity;
 use Repository\RepositoryEntity;
 
 /**
- * @FG\Entity[name=admin_invoice_debit_customer,repository=Flexgrid\Modules\AdminPayment\Repository\InvoiceDebitCustomerRecordRepository,type=Module,in_menu=false,hide=true]
+ * @FG\Entity[name=admin_invoice_debit_customer,label=Incassoklant,repository=Flexgrid\Modules\AdminPayment\Repository\InvoiceDebitCustomerRecordRepository,type=Module,in_menu=false,hide=true]
  * @FG\Index::tenant_customer[columns={tenantId,customerPublicId},unique=true]
  */
 final class InvoiceDebitCustomerRecord extends RepositoryEntity

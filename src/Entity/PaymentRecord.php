@@ -9,7 +9,7 @@ use Repository\RepositoryEntity;
 /**
  * Autowire-opslagrecord. Domeinregels leven in Domain\Model\Payment.
  *
- * @FG\Entity[name=admin_payment,repository=Flexgrid\Modules\AdminPayment\Repository\PaymentRecordRepository,type=Module,in_menu=false,hide=true]
+ * @FG\Entity[name=admin_payment,label=Betaling,repository=Flexgrid\Modules\AdminPayment\Repository\PaymentRecordRepository,type=Module,in_menu=false,hide=true]
  * @FG\Index::tenant_public[columns={tenantId,publicId},unique=true]
  * @FG\Index::tenant_source_external[columns={tenantId,source,externalId},unique=true]
  * @FG\Index::tenant_booked_on[columns={tenantId,bookedOn}]
